@@ -6,18 +6,25 @@ const vehicleSchema = z.object({
 });
 
 const vehiclePartSchema = z.object({
-  vehicle_id: z.string(),
   name: z.string()
 })
 
 export class VehicleService {
 
-  async listVehicle(keyword: string = "") {
+  async listVehicle(keyword = "") {
     await db.connect();
-    const vehicles = await db.queryArray(`SELECT * FROM vehicles`);
+    const vehicles = await db.queryObject(`SELECT * FROM vehicles WHERE name LIKE '%${keyword}%' ORDER BY name`);
     await db.end();
     
     return vehicles;    
+  }
+
+  async deleteVehicle(id: string) {
+    await db.connect();
+    const vehicle = await db.queryObject(`DELETE FROM vehicles WHERE id = '${id}'`);
+    await db.end();
+
+    return vehicle;
   }
 
   async createVehicle(vehicle) {
@@ -32,19 +39,79 @@ export class VehicleService {
     return res;
   }
 
-  async createVehiclePart(vehiclePart) {
-    vehiclePartSchema.parse(vehiclePart);
+  async createVehiclePart(vehicleId: string, part) {
+    z.string().parse(vehicleId);
+    vehiclePartSchema.parse(part);
     
     await db.connect();
-    const res = await db.queryObject(`INSERT INTO vehicle_parts (vehicle_id, name) VALUES('${vehiclePart.vehicle_id}', '${vehiclePart.name}')`);
+    const res = await db.queryObject(`INSERT INTO vehicle_parts (vehicle_id, name) VALUES('${vehicleId}', '${part.name}')`);
     await db.end();
+
+    return res;
+  }
+
+  async assignPart(partId: string, vehiclePartId: string) {
+    //if (partId || vehiclePartId == null || undefined) throw new Error("Please specify an id for part and vehicle");
+
+    await db.connect();
+    console.log(partId);
+    const res = await db.queryObject(`INSERT INTO part_vehicle (part_id, vehicle_part_id) VALUES('${partId}', '${vehiclePartId}')`);
+    await db.end();
+
+    return res;
+  }
+
+  async listVehiclePartItems(vehiclePartId: string) {
+    await db.connect();
+    const res = await db.queryObject(`
+      SELECT parts.id, parts.name FROM part_vehicle
+      INNER JOIN parts
+        ON part_vehicle.part_id = parts.id
+      WHERE part_vehicle.vehicle_part_id = '${vehiclePartId}'
+    `);
+    console.log(res);
+    await db.end();
+
+    return res.rows;
+  }
+
+  async listVehiclePart(id: string) {
+    await db.connect();
+    const res = await db.queryObject(`SELECT id, name FROM vehicle_parts WHERE vehicle_id = '${id}'`);
+    await db.end();
+
+    return res;
   }
   
-  async getVehicle(id) {
+  async getVehicle(id: string) {
+    if (!id) throw new Error("Please specify an id");
+
     await db.connect();
-    const vehicle = await db.queryObject(`SELECT * FROM vehicles WHERE id = ${id}`);
+
+    const vehicles = await db.queryObject(`SELECT * FROM vehicles WHERE id = '${id}'`);
+
+    if (vehicles.length < 1) throw new Error("Not found");
+
+    const vehicle = vehicles.rows[0];
+    const vehicle_parts = await db.queryObject(`SELECT id, name FROM vehicle_parts WHERE vehicle_id = '${vehicle.id}'`);
+    const vehicle_part_items = vehicle_parts.rows.map(async part => {
+      console.log(part);
+      const items = await this.listVehiclePartItems(part.id);
+      console.log(items);
+
+      part.items = items;
+
+      return part;
+    });
+
     await db.end();
+
+    const res = {
+      id: vehicle.id,
+      name: vehicle.name,
+      parts: vehicle_part_items
+    };
     
-    return vehicle;
+    return res;
   }
 }

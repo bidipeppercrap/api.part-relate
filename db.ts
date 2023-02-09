@@ -29,7 +29,7 @@ const create_table_vehicles = `CREATE TABLE IF NOT EXISTS vehicles (
 const create_table_vehicle_parts = `CREATE TABLE IF NOT EXISTS vehicle_parts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
-  vehicle_id UUID REFERENCES vehicles (id) ON DELETE CASCADE
+  vehicle_id UUID NOT NULL REFERENCES vehicles (id) ON DELETE CASCADE
 )`;
 
 const create_table_parts = `CREATE TABLE IF NOT EXISTS parts (
