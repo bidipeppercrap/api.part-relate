@@ -54,7 +54,6 @@ export class VehicleService {
     //if (partId || vehiclePartId == null || undefined) throw new Error("Please specify an id for part and vehicle");
 
     await db.connect();
-    console.log(partId);
     const res = await db.queryObject(`INSERT INTO part_vehicle (part_id, vehicle_part_id) VALUES('${partId}', '${vehiclePartId}')`);
     await db.end();
 
@@ -65,11 +64,9 @@ export class VehicleService {
     await db.connect();
     const res = await db.queryObject(`
       SELECT parts.id, parts.name FROM part_vehicle
-      INNER JOIN parts
-        ON part_vehicle.part_id = parts.id
+      JOIN parts ON part_vehicle.part_id = parts.id
       WHERE part_vehicle.vehicle_part_id = '${vehiclePartId}'
     `);
-    console.log(res);
     await db.end();
 
     return res.rows;
@@ -80,7 +77,7 @@ export class VehicleService {
     const res = await db.queryObject(`SELECT id, name FROM vehicle_parts WHERE vehicle_id = '${id}'`);
     await db.end();
 
-    return res;
+    return res.rows;
   }
   
   async getVehicle(id: string) {
@@ -93,16 +90,14 @@ export class VehicleService {
     if (vehicles.length < 1) throw new Error("Not found");
 
     const vehicle = vehicles.rows[0];
-    const vehicle_parts = await db.queryObject(`SELECT id, name FROM vehicle_parts WHERE vehicle_id = '${vehicle.id}'`);
-    const vehicle_part_items = vehicle_parts.rows.map(async part => {
-      console.log(part);
+    const vehicle_parts = await this.listVehiclePart(vehicle.id);
+    const vehicle_part_items = await Promise.all(vehicle_parts.map(async part => {
       const items = await this.listVehiclePartItems(part.id);
-      console.log(items);
 
       part.items = items;
 
       return part;
-    });
+    }));
 
     await db.end();
 

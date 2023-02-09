@@ -10,8 +10,12 @@ export const db = new Client({
   tls: { enforce: true }
 });
 
+const reset = Deno.env.get("DATABASE_RESET");
+
 export async function initializeTables() {
   await db.connect();
+
+  // if (reset) { await db.queryObject(drop_everything) }
 
   await db.queryObject(create_table_vehicles);
   await db.queryObject(create_table_parts);
@@ -20,6 +24,13 @@ export async function initializeTables() {
   
   await db.end();
 }
+
+const drop_everything = `
+  DROP TABLE IF EXISTS part_vehicle;
+  DROP TABLE IF EXISTS vehicle_parts;
+  DROP TABLE IF EXISTS parts;
+  DROP TABLE IF EXISTS vehicles;
+`
 
 const create_table_vehicles = `CREATE TABLE IF NOT EXISTS vehicles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
